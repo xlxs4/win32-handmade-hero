@@ -1,0 +1,18 @@
+{
+	"build_systems":
+	[
+		{
+			"name": "hh",
+			"shell_cmd": "build",
+			"working_dir": "$project_path",
+			"file_regex": "^(.*)\\((\\d+),?(\\d+)?\\)\\s?:\\s([^\n]+)"
+		}
+	],
+	"folders":
+	[
+		{
+			"path": "w:\\hh",
+			"folder_exclude_patterns": ["build"]
+		}
+	]
+}

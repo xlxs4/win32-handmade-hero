@@ -1,0 +1,28 @@
+I put everything in Desktop, three dirs. apps, games, dev
+
+add C:\Users\orous\Desktop\apps\ to Path
+add C:\Program Files\Sublime Text\ to Path for subl.exe
+make new env var, EDITOR, with value subl -w
+
+install c++ build tools: https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line
+if you want Visual Studio as well, for the debugger, grab https://learn.microsoft.com/en-us/cpp/build/vscpp-step-0-installation (make sure to remove components such as copilot, test adapters, intellicode, vcpkg...)
+
+from Run: shell:startup
+create a startup.bat in the startup dir and add
+@echo off
+subst w: C:\Users\orous\Desktop\dev\
+subst a: C:\Users\orous\Desktop\apps\
+
+make a misc and a code dir. In misc, create a shell.bat:
+@echo off
+call "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" x64
+set path=w:\hh\misc;%path%
+
+devenv is available from the visual studio install. Both the, e.g., Community edition and Build Tools co-exist, in different dirs. So, to get devenv, point to the correct vcvarsall:
+call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+
+and also grab a copy of the command prompt shortcut, put it in misc, go to the shortcut properties, in target append /k w:\hh\misc\shell.bat after cmd.exe, and do, e.g., start in w:\hh
+
+you can also pass things like nologo to cl, refer to, e.g., https://github.com/EpicGames/raddebugger/blob/master/build.bat
+
+make a data dir as well, open the exe in visual studio with devenv build\myexe.exe, go to the properties in the solution explorer, and set the working directory to the data dir, using the subst drive (w:\...\data)
