@@ -1,2 +1,2 @@
 @echo off
-subl --project w:\hh\hh.sublime-project w:\hh
+subl --project w:\hh\hh.sublime-project
