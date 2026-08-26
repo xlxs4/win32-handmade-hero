@@ -84,7 +84,7 @@ Win32_LoadXInput(void)
 // TODO: Use a more modern sound API instead of DirectSound?
 // https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ee416960(v=vs.85)?redirectedfrom=MSDN
 
-global_variable LPDIRECTSOUNDBUFFER secondaryBuffer;
+global_variable LPDIRECTSOUNDBUFFER gSecondaryBuffer;
 
 // DirectSoundCreate
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
@@ -127,7 +127,7 @@ Win32_InitDSound(HWND window, i32 samplesPerSecond, i32 bufferSize)
 			bufferDescription.dwSize = sizeof(bufferDescription);
 			bufferDescription.dwBufferBytes = bufferSize;
 			bufferDescription.lpwfxFormat = &waveFormat;
-			if(SUCCEEDED(directSound->CreateSoundBuffer(&bufferDescription, &secondaryBuffer, 0)))
+			if(SUCCEEDED(directSound->CreateSoundBuffer(&bufferDescription, &gSecondaryBuffer, 0)))
 			{
 				OutputDebugStringA("sec suc");
 			}
@@ -135,7 +135,7 @@ Win32_InitDSound(HWND window, i32 samplesPerSecond, i32 bufferSize)
 	}
 }
 
-global_variable b32 globalRunning;
+global_variable b32 gRunning;
 
 // TODO: Use a more modern API instead of DirectShow?
 struct Win32_OffscreenBuffer
@@ -148,7 +148,7 @@ struct Win32_OffscreenBuffer
 	int        pitch;
 };
 
-global_variable Win32_OffscreenBuffer globalBackbuffer;
+global_variable Win32_OffscreenBuffer gBackbuffer;
 
 struct Win32_WindowDimension
 {
@@ -253,12 +253,12 @@ Win32_MainWindowCallback(HWND   window,
 	{
 		case WM_DESTROY:
 		{
-			globalRunning = false;
+			gRunning = false;
 		} break;
 
 		case WM_CLOSE:
 		{
-			globalRunning = false;
+			gRunning = false;
 		} break;
 	
 		case WM_ACTIVATEAPP:
@@ -316,7 +316,7 @@ Win32_MainWindowCallback(HWND   window,
 			b32 altKeyWasDown = lParam & (1 << 29);
 			if((virtualKeyCode == VK_F4) && altKeyWasDown)
 			{
-				globalRunning = false;
+				gRunning = false;
 			}
 		} break;
 
@@ -327,7 +327,7 @@ Win32_MainWindowCallback(HWND   window,
 
 			Win32_WindowDimension dimension = Win32_GetWindowDimension(window);
 			Win32_DisplayBufferInWindow(
-				&globalBackbuffer,
+				&gBackbuffer,
 				deviceContext,
 				dimension.width, dimension.height
 			);
@@ -357,7 +357,7 @@ struct Win32_SoundOutput
 	u32 runningSampleIndex;
 	int wavePeriod;
 	int bytesPerSample;
-	int secondaryBufferSize;
+	int gSecondaryBufferSize;
 	f32 tSine;
 	int latencySampleCount;
 };
@@ -369,7 +369,7 @@ Win32_FillSoundBuffer(Win32_SoundOutput* soundOutput, DWORD byteToLock, DWORD by
 	DWORD region1Size;
 	VOID* region2;
 	DWORD region2Size;
-	if(SUCCEEDED(secondaryBuffer->Lock(
+	if(SUCCEEDED(gSecondaryBuffer->Lock(
 		byteToLock,
 		bytesToWrite,
 		&region1, &region1Size,
@@ -401,7 +401,7 @@ Win32_FillSoundBuffer(Win32_SoundOutput* soundOutput, DWORD byteToLock, DWORD by
 			++soundOutput->runningSampleIndex;
 		}
 
-		secondaryBuffer->Unlock(region1, region1Size, region2, region2Size);
+		gSecondaryBuffer->Unlock(region1, region1Size, region2, region2Size);
 	}
 }
 
@@ -411,11 +411,15 @@ WinMain(HINSTANCE instance,
         LPSTR     commandLine,
         int       showCode)
 {
+	LARGE_INTEGER perfCountFrequencyResult;
+	QueryPerformanceFrequency(&perfCountFrequencyResult);
+	i64 perfCountFrequency = perfCountFrequencyResult.QuadPart;
+
 	Win32_LoadXInput();
 
 	WNDCLASSA windowClass = {};
 
-	Win32_ResizeDIBSection(&globalBackbuffer, 1280, 720);
+	Win32_ResizeDIBSection(&gBackbuffer, 1280, 720);
 
 	// Casey added CS_OWNDC. We don't, because that's not good practice.
 	// Refer to https://devblogs.microsoft.com/oldnewthing/20060601-06/?p=31003
@@ -453,21 +457,26 @@ WinMain(HINSTANCE instance,
 			soundOutput.toneVolume = 4000;
 			soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.toneHz;
 			soundOutput.bytesPerSample = sizeof(i16) * 2;
-			soundOutput.secondaryBufferSize = soundOutput.samplesPerSecond * soundOutput.bytesPerSample;
+			soundOutput.gSecondaryBufferSize = soundOutput.samplesPerSecond * soundOutput.bytesPerSample;
 			soundOutput.latencySampleCount = soundOutput.samplesPerSecond / 15;
 
-			Win32_InitDSound(window, soundOutput.samplesPerSecond, soundOutput.secondaryBufferSize);
+			Win32_InitDSound(window, soundOutput.samplesPerSecond, soundOutput.gSecondaryBufferSize);
 			Win32_FillSoundBuffer(&soundOutput, 0, soundOutput.latencySampleCount * soundOutput.bytesPerSample);
-			secondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+			gSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
-			globalRunning = true;
-			while(globalRunning)
+			gRunning = true;
+
+			LARGE_INTEGER lastCounter;
+			QueryPerformanceCounter(&lastCounter);
+
+			u64 lastCycleCount = __rdtsc();
+			while(gRunning)
 			{
 				while(PeekMessage(&message, 0, 0, 0, PM_REMOVE))
 				{
 					if(message.message == WM_QUIT)
 					{
-						globalRunning = false;
+						gRunning = false;
 					}
 					TranslateMessage(&message);
 					DispatchMessageA(&message);
@@ -520,22 +529,22 @@ WinMain(HINSTANCE instance,
 					}
 				}
 
-				Win32_RenderWeirdGradient(&globalBackbuffer, xOffset, yOffset);
+				Win32_RenderWeirdGradient(&gBackbuffer, xOffset, yOffset);
 
 				DWORD playCursor;
 				// We don't care about the write cursor.
 				DWORD writeCursor;
-				if(SUCCEEDED(secondaryBuffer->GetCurrentPosition(&playCursor, &writeCursor)))
+				if(SUCCEEDED(gSecondaryBuffer->GetCurrentPosition(&playCursor, &writeCursor)))
 				{
 					DWORD byteToLock = (soundOutput.runningSampleIndex * soundOutput.bytesPerSample) %
-					                    soundOutput.secondaryBufferSize;
+					                    soundOutput.gSecondaryBufferSize;
 					DWORD targetCursor = (playCursor +
 						                  (soundOutput.latencySampleCount * soundOutput.bytesPerSample)) %
-					                      soundOutput.secondaryBufferSize;
+					                      soundOutput.gSecondaryBufferSize;
 					DWORD bytesToWrite;
 					if(byteToLock > targetCursor)
 					{
-						bytesToWrite = soundOutput.secondaryBufferSize - byteToLock;
+						bytesToWrite = soundOutput.gSecondaryBufferSize - byteToLock;
 						bytesToWrite += targetCursor;
 					}
 					else
@@ -548,11 +557,31 @@ WinMain(HINSTANCE instance,
 				HDC deviceContext = GetDC(window);
 				Win32_WindowDimension dimension = Win32_GetWindowDimension(window);
 				Win32_DisplayBufferInWindow(
-					&globalBackbuffer,
+					&gBackbuffer,
 					deviceContext,
 					dimension.width, dimension.height
 				);
 				ReleaseDC(window, deviceContext);
+
+				u64 endCycleCount = __rdtsc();
+
+				LARGE_INTEGER endCounter;
+				QueryPerformanceCounter(&endCounter);
+
+				u64 cyclesElapsed = endCycleCount - lastCycleCount;
+				i64 counterElapsed = endCounter.QuadPart - lastCounter.QuadPart;
+				// We cast these down to i32 because printf fmt specifiers work reliably
+				// w/ i32, but not always w/ i64, apparently.
+				i32 msPerFrame = (i32)((1000 * counterElapsed) / perfCountFrequency);
+				i32 fps = perfCountFrequency / counterElapsed;
+				i32 mcpf = (i32)(cyclesElapsed / (1000 * 1000));
+
+				char buffer[256];
+				wsprintfA(buffer, "%dms/f, %df/s, %dmc/f\n", msPerFrame, fps, mcpf);
+				OutputDebugStringA(buffer);
+
+				lastCycleCount = endCycleCount;
+				lastCounter = endCounter;
 			}
 		}
 	}
