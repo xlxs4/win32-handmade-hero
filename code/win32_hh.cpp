@@ -1,13 +1,10 @@
-#include <windows.h>
-#include <xinput.h>
-#include <dsound.h>
-
 #include <cstdint>
-#include <cmath>
 
 #define internal        static
 #define local_persist   static
 #define global_variable static
+
+#define PI32 3.14159265359
 
 typedef int8_t  i8;
 typedef int16_t i16;
@@ -24,7 +21,13 @@ typedef double f64;
 
 typedef int32_t b32;
 
-#define PI32 3.14159265359
+#include "hh.cpp"
+
+#include <cmath>
+
+#include <windows.h>
+#include <xinput.h>
+#include <dsound.h>
 
 // We use XInput for gamepad support. For XInput to work, we need to link with a
 // xinput DLL. That DLL might not be available in a user PC. Since the game can work
@@ -60,7 +63,7 @@ global_variable x_input_set_state* XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
 
 internal void
-Win32_LoadXInput(void)
+Win32_LoadXInput()
 {
 	// https://learn.microsoft.com/en-us/windows/win32/xinput/xinput-versions
 	HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
@@ -167,33 +170,6 @@ Win32_GetWindowDimension(HWND window)
 	result.height = clientRect.bottom - clientRect.top;
 
 	return result;
-}
-
-internal void
-Win32_RenderWeirdGradient(Win32_OffscreenBuffer* buffer,
-                          int xOffset, int yOffset)
-{
-	u8* row = (u8*)buffer->memory;
-	for(int y = 0; y < buffer->height; ++y)
-	{
-		u32* pixel = (u32*)row;
-		for(int x = 0; x < buffer->width; ++x)
-		{
-			// Due to little endian architecture, if you
-			// have RR GG BB XX 32 bits, you'll get
-			//      XX BB GG RR
-			// Apparently, the people doing Win32 bitmaps wanted the
-			// values in the CPU register to be intuitive. They didn't care
-			// about the padding bit, they wanted get RR GG BB in the register.
-			// So they flipped the order around to BB GG RR XX, to get
-			//                                     XX RR GG BB 
-			u8 blue = (x + xOffset);
-			u8 green = (y + yOffset);
-			*pixel++ = ((green << 8) | blue);
-		}
-
-		row += buffer->pitch;
-	}
 }
 
 internal void
@@ -529,7 +505,12 @@ WinMain(HINSTANCE instance,
 					}
 				}
 
-				Win32_RenderWeirdGradient(&gBackbuffer, xOffset, yOffset);
+				GameOffscreenBuffer gameBuffer = {};
+				gameBuffer.memory = gBackbuffer.memory;
+				gameBuffer.width = gBackbuffer.width;
+				gameBuffer.height = gBackbuffer.height;
+				gameBuffer.pitch = gBackbuffer.pitch;
+				GameUpdateAndRender(&gameBuffer, xOffset, yOffset);
 
 				DWORD playCursor;
 				// We don't care about the write cursor.
@@ -576,9 +557,11 @@ WinMain(HINSTANCE instance,
 				i32 fps = perfCountFrequency / counterElapsed;
 				i32 mcpf = (i32)(cyclesElapsed / (1000 * 1000));
 
+#if 0
 				char buffer[256];
 				wsprintfA(buffer, "%dms/f, %df/s, %dmc/f\n", msPerFrame, fps, mcpf);
 				OutputDebugStringA(buffer);
+#endif
 
 				lastCycleCount = endCycleCount;
 				lastCounter = endCounter;
