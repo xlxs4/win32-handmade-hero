@@ -9,8 +9,17 @@ struct GameOffscreenBuffer
 	int        pitch;
 };
 
+struct GameSoundOutputBuffer
+{
+	i16* samples;
+	int  samplesPerSecond;
+	int  sampleCount;
+}
+
 // Services that the game provides to the platform layer.
-internal void GameUpdateAndRender(GameOffscreenBuffer* buffer);
+internal void
+GameUpdateAndRender(GameOffscreenBuffer* buffer, int xOffset, int yOffset,
+                    GameSoundOutputBuffer* soundBuffer, int toneHz);
 
 #define HH_H
 #endif

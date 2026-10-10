@@ -1,5 +1,22 @@
 #include "hh.h"
 
+internal void
+GameOutputSound(GameSoundOutputBuffer* buffer, int toneHz)
+{
+	local_persist f32 tSine;
+	i16 toneVolume = 3000;
+	int wavePeriod = buffer->samplesPerSecond / toneHz;
+
+	i16 *sampleOut = buffer->samples;
+	for(int sampleIndex = 0; sampleIndex < buffer->sampleCount; ++sampleIndex)
+	{
+		f32 sineValue = sinf(tSine);
+		i16 sampleValue = (i16)(sineValue * toneVolume);
+		*sampleOut++ = sampleValue;
+		*sampleOut++ = sampleValue;
+		tSine += 2.0f * PI32 * 1.0f / (f32)wavePeriod;
+	}
+}
 
 internal void
 RenderWeirdGradient(GameOffscreenBuffer* buffer,
@@ -28,8 +45,10 @@ RenderWeirdGradient(GameOffscreenBuffer* buffer,
 	}
 }
 
-internal void GameUpdateAndRender(GameOffscreenBuffer* buffer,
-	                               int xOffset, int yOffset)
+internal void
+GameUpdateAndRender(GameOffscreenBuffer* buffer, int xOffset, int yOffset,
+	                 GameSoundOutputBuffer* soundBuffer)
 {
+	GameOutputSound(soundBuffer);
 	RenderWeirdGradient(buffer, xOffset, yOffset);
 }
