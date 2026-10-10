@@ -1,5 +1,3 @@
-#include "hh.h"
-
 internal void
 GameOutputSound(GameSoundOutputBuffer* buffer, int toneHz)
 {
@@ -15,6 +13,12 @@ GameOutputSound(GameSoundOutputBuffer* buffer, int toneHz)
 		*sampleOut++ = sampleValue;
 		*sampleOut++ = sampleValue;
 		tSine += 2.0f * PI32 * 1.0f / (f32)wavePeriod;
+		// Wrap the sine wave back to [0, 2pi) so that we don't get
+		// increasingly larger floating point errors.
+		if(tSine > 2.0f * PI32)
+		{
+			tSine -= 2.0f * PI32;
+		}
 	}
 }
 
@@ -46,9 +50,32 @@ RenderWeirdGradient(GameOffscreenBuffer* buffer,
 }
 
 internal void
-GameUpdateAndRender(GameOffscreenBuffer* buffer, int xOffset, int yOffset,
-	                 GameSoundOutputBuffer* soundBuffer)
+GameUpdateAndRender(GameInput* input,
+                    GameOffscreenBuffer* buffer,
+                    GameSoundOutputBuffer* soundBuffer)
 {
-	GameOutputSound(soundBuffer);
+	local_persist int xOffset = 0;
+	local_persist int yOffset = 0;
+	local_persist int toneHz = 440;
+
+	GameControllerInput *input0 = &input->controllers[0];
+	if(input0->isAnalog)
+	{
+		xOffset += (int)4.0f*(input0->endX);
+		toneHz = 256 + (int)(128.0f * (input0->endY));
+	}
+	else
+	{
+
+	}
+
+	// input0->AButtonHalfTransitionCount
+	if(input0->down.endedDown)
+	{
+		yOffset += 1;
+	}
+
+	
+	GameOutputSound(soundBuffer, toneHz);
 	RenderWeirdGradient(buffer, xOffset, yOffset);
 }

@@ -12,7 +12,7 @@
 	[
 		{
 			"path": "w:\\hh",
-			"folder_exclude_patterns": ["build"]
+			"folder_exclude_patterns": ["build", ".git"]
 		}
 	]
 }
