@@ -1,0 +1,13 @@
+# Match the defines from build.bat
+CompileFlags:
+  Add: [-DHANDMADE_INTERNAL=1, -DHANDMADE_SLOW=1, -DHANDMADE_WIN32=1]
+
+---
+# We're doing a single TU (Unity) build.
+# clangd doesn't support non-self-contained files:
+# https://github.com/clangd/clangd/issues/45
+# so I'm temporarily suppressing diagnostics in those.
+If:
+  PathMatch: code/(hh\.cpp|hh\.h|win32_hh\.h)
+Diagnostics:
+  Suppress: '*'
