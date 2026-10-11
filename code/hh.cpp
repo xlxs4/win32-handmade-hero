@@ -50,32 +50,38 @@ RenderWeirdGradient(GameOffscreenBuffer* buffer,
 }
 
 internal void
-GameUpdateAndRender(GameInput* input,
+GameUpdateAndRender(GameMemory* memory,
+                    GameInput* input,
                     GameOffscreenBuffer* buffer,
                     GameSoundOutputBuffer* soundBuffer)
 {
-	local_persist int xOffset = 0;
-	local_persist int yOffset = 0;
-	local_persist int toneHz = 440;
+	Assert(sizeof(GameState) <= memory->permanentStorageSize);
+
+	GameState* gameState = (GameState*)memory->permanentStorage;
+	if(!memory->isInitialized)
+	{
+		gameState->toneHz = 440;
+
+		memory->isInitialized = true;
+	}
 
 	GameControllerInput *input0 = &input->controllers[0];
 	if(input0->isAnalog)
 	{
-		xOffset += (int)4.0f*(input0->endX);
-		toneHz = 256 + (int)(128.0f * (input0->endY));
+		gameState->xOffset += (int)4.0f*(input0->endX);
+		gameState->toneHz = 256 + (int)(128.0f * (input0->endY));
 	}
 	else
 	{
 
 	}
 
-	// input0->AButtonHalfTransitionCount
 	if(input0->down.endedDown)
 	{
-		yOffset += 1;
+		gameState->yOffset += 1;
 	}
 
 	
-	GameOutputSound(soundBuffer, toneHz);
-	RenderWeirdGradient(buffer, xOffset, yOffset);
+	GameOutputSound(soundBuffer, gameState->toneHz);
+	RenderWeirdGradient(buffer, gameState->xOffset, gameState->yOffset);
 }

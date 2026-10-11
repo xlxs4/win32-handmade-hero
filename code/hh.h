@@ -1,6 +1,27 @@
 #if !defined(HH_H)
 
-#define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
+/*
+	HANDMADE_INTERNAL:
+		0 - Build for public release
+		1 - Build for developer only
+
+	HANDMADE_SLOW:
+		0 - No slow code allowed!
+		1 - Slow code welcome
+*/
+
+#if HANDMADE_SLOW
+#define Assert(expression) if(!(expression)) { *(int*)0 = 0; }
+#else
+#define Assert(expression)
+#endif
+
+#define Kilobytes(value) ((value)*1024LL)
+#define Megabytes(value) (Kilobytes(value)*1024LL)
+#define Gigabytes(value) (Megabytes(value)*1024LL)
+#define Terabytes(value) (Gigabytes(value)*1024LL)
+
+#define ArrayCount(array) (sizeof(array) / sizeof((array)[0]))
 
 struct GameOffscreenBuffer
 {
@@ -59,9 +80,28 @@ struct GameInput
 	GameControllerInput controllers[4];
 };
 
+struct GameState
+{
+	int xOffset;
+	int yOffset;
+	int toneHz;
+};
+
+struct GameMemory
+{
+	b32   isInitialized;
+
+	u64   permanentStorageSize;
+	void* permanentStorage; // REQUIRED to be cleared to zero at startup
+
+	u64   transientStorageSize;
+	void* transientStorage; // REQUIRED to be cleared to zero at startup
+};
+
 // Services that the game provides to the platform layer.
 internal void
-GameUpdateAndRender(GameInput* input,
+GameUpdateAndRender(GameMemory* memory,
+                    GameInput* input,
                     GameOffscreenBuffer* buffer,
                     GameSoundOutputBuffer* soundBuffer);
 
