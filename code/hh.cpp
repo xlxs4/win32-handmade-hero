@@ -60,6 +60,15 @@ GameUpdateAndRender(GameMemory* memory,
 	GameState* gameState = (GameState*)memory->permanentStorage;
 	if(!memory->isInitialized)
 	{
+		char* filename = __FILE__;
+
+		DebugReadFileResult file = DEBUGPlatformReadEntireFile(filename);
+		if(file.contents)
+		{
+			DEBUGPlatformWriteEntireFile("test.out", file.contentsSize, file.contents);
+			DEBUGPlatformFreeFileMemory(file.contents);
+		}
+
 		gameState->toneHz = 440;
 
 		memory->isInitialized = true;

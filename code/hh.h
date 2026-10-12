@@ -23,6 +23,29 @@
 
 #define ArrayCount(array) (sizeof(array) / sizeof((array)[0]))
 
+inline u32
+SafeTruncateUInt64(u64 value)
+{
+	Assert(value <= 0xFFFFFFFF);
+	u32 result = (u32)value;
+	return result;
+}
+
+// Services that the game provides to the platform layer.
+
+#if HANDMADE_INTERNAL
+struct DebugReadFileResult
+{
+	u32   contentsSize;
+	void* contents;
+};
+
+internal DebugReadFileResult DEBUGPlatformReadEntireFile(char* filename);
+internal void                DEBUGPlatformFreeFileMemory(void* bitmapMemory);
+internal b32                 DEBUGPlatformWriteEntireFile(char* filename,
+		                                                    u32 memorySize, void* memory);
+#endif
+
 struct GameOffscreenBuffer
 {
 	// Pixels are always 32-bits wide, memory order BB GG RR XX.
@@ -98,7 +121,6 @@ struct GameMemory
 	void* transientStorage; // REQUIRED to be cleared to zero at startup
 };
 
-// Services that the game provides to the platform layer.
 internal void
 GameUpdateAndRender(GameMemory* memory,
                     GameInput* input,

@@ -94,6 +94,77 @@ global_variable LPDIRECTSOUNDBUFFER gSecondaryBuffer;
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
+internal DebugReadFileResult
+DEBUGPlatformReadEntireFile(char* filename)
+{
+	DebugReadFileResult result = {};
+
+	HANDLE fileHandle = CreateFileA(filename,
+			                         GENERIC_READ, FILE_SHARE_READ, 0,
+											 OPEN_EXISTING, 0, 0);
+	if(fileHandle != INVALID_HANDLE_VALUE)
+	{
+		LARGE_INTEGER fileSize;
+		if(GetFileSizeEx(fileHandle, &fileSize))
+		{
+			// ReadFile works only with a DWORD for the size, so we
+			// make sure that the filesize fits in 4GB (DWORD is 32 bits)
+			u32 fileSize32 = SafeTruncateUInt64(fileSize.QuadPart);
+			// Typically we wouldn't use VirtualAlloc for such small sizes,
+			// but this is test code :)
+			result.contents = VirtualAlloc(0, fileSize32, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+			if(result.contents)
+			{
+				DWORD bytesRead;
+				if(ReadFile(fileHandle, result.contents, fileSize32, &bytesRead, 0) &&
+						(fileSize32 == bytesRead))
+				{
+					result.contentsSize = fileSize32;
+				}
+				else
+				{
+					DEBUGPlatformFreeFileMemory(result.contents);
+					result.contents = 0;
+				}
+			}
+		}
+
+		CloseHandle(fileHandle);
+	}
+	return result;
+}
+
+internal void
+DEBUGPlatformFreeFileMemory(void* memory)
+{
+	if(memory)
+	{
+		VirtualFree(memory, 0, MEM_RELEASE);
+	}
+}
+
+internal b32
+DEBUGPlatformWriteEntireFile(char* filename, u32 memorySize, void* memory)
+{
+	b32 result = false;
+
+	HANDLE fileHandle = CreateFileA(filename,
+                                   GENERIC_WRITE, 0, 0,
+                                   CREATE_ALWAYS, 0, 0);
+	if(fileHandle != INVALID_HANDLE_VALUE)
+	{
+		DWORD bytesWritten;
+		if(WriteFile(fileHandle, memory, memorySize, &bytesWritten, 0))
+		{
+			result = (bytesWritten == memorySize);
+		}
+		
+		CloseHandle(fileHandle);
+	}
+	return result;
+}
+
+
 internal void
 Win32_InitDSound(HWND window, i32 samplesPerSecond, i32 bufferSize)
 {
