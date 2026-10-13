@@ -2,3 +2,4 @@ build/
 misc/*.lnk
 desktop.ini
 hh.sublime-workspace
+test.out

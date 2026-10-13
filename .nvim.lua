@@ -32,16 +32,10 @@ vim.keymap.set("n", "<leader>ob", function()
 		components = {
 			{ "on_output_parse", parser = parse_msvc },
 			{ "on_result_diagnostics", remove_on_restart = true },
-			{ "on_result_diagnostics_quickfix", open = false, close = true },
+			{ "on_result_diagnostics_quickfix", close = true, open = true },
 			"unique",
 			"default",
 		},
 	})
-	-- Show problems in fzf-lua instead of the quickfix window
-	task:subscribe("on_complete", function(_, _, result)
-		if result and not vim.tbl_isempty(result.diagnostics or {}) then
-			require("fzf-lua").quickfix()
-		end
-	end)
 	task:start()
 end, { desc = "Build" })

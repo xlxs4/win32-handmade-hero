@@ -40,8 +40,8 @@ RenderWeirdGradient(GameOffscreenBuffer* buffer,
 			// about the padding bit, they wanted get RR GG BB in the register.
 			// So they flipped the order around to BB GG RR XX, to get
 			//                                     XX RR GG BB 
-			u8 blue = (x + xOffset);
-			u8 green = (y + yOffset);
+			u8 blue = (u8)(x + xOffset);
+			u8 green = (u8)(y + yOffset);
 			*pixel++ = ((green << 8) | blue);
 		}
 
@@ -77,7 +77,7 @@ GameUpdateAndRender(GameMemory* memory,
 	GameControllerInput *input0 = &input->controllers[0];
 	if(input0->isAnalog)
 	{
-		gameState->xOffset += (int)4.0f*(input0->endX);
+		gameState->xOffset += (int)(4.0f*(input0->endX));
 		gameState->toneHz = 256 + (int)(128.0f * (input0->endY));
 	}
 	else

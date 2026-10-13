@@ -296,61 +296,6 @@ Win32_MainWindowCallback(HWND   window,
 		{
 		} break;
 
-		case WM_SYSKEYDOWN:
-		case WM_SYSKEYUP:
-		case WM_KEYDOWN:
-		case WM_KEYUP:
-		{
-			u32 virtualKeyCode = wParam;
-			b32 wasDown = ((lParam & (1 << 30)) != 0);
-			b32 isDown  = ((lParam & (1 << 31)) == 0);
-			if(wasDown != isDown)
-			{
-				if(virtualKeyCode == 'W')
-				{
-				}
-				else if(virtualKeyCode == 'A')
-				{
-				}
-				else if(virtualKeyCode == 'S')
-				{	
-				}
-				else if(virtualKeyCode == 'D')
-				{	
-				}
-				else if(virtualKeyCode == 'Q')
-				{	
-				}
-				else if(virtualKeyCode == 'E')
-				{
-				}
-				else if(virtualKeyCode == VK_UP)
-				{	
-				}
-				else if(virtualKeyCode == VK_LEFT)
-				{	
-				}
-				else if(virtualKeyCode == VK_DOWN)
-				{	
-				}
-				else if(virtualKeyCode == VK_RIGHT)
-				{
-				}
-				else if(virtualKeyCode == VK_ESCAPE)
-				{	
-				}
-				else if(virtualKeyCode == VK_SPACE)
-				{
-				}
-			}
-
-			b32 altKeyWasDown = lParam & (1 << 29);
-			if((virtualKeyCode == VK_F4) && altKeyWasDown)
-			{
-				gRunning = false;
-			}
-		} break;
-
 		case WM_PAINT:
 		{
 			PAINTSTRUCT paint;
@@ -449,6 +394,15 @@ Win32_FillSoundBuffer(Win32_SoundOutput* soundOutput, DWORD byteToLock, DWORD by
 		gSecondaryBuffer->Unlock(region1, region1Size, region2, region2Size);
 	}
 }
+
+internal void
+Win32_ProcessKeyboardMessage(GameButtonState* newState, b32 isDown)
+{
+	newState->endedDown = isDown;
+	++newState->halfTransitionCount;
+}
+
+
 
 internal void
 Win32_ProcessDigitalXInputButton(DWORD XButtonInputState,
@@ -550,18 +504,90 @@ WinMain(HINSTANCE instance,
 				u64 lastCycleCount = __rdtsc();
 				while(gRunning)
 				{
+					GameControllerInput *keyboardController = &newInput->controllers[0];
+					GameControllerInput zeroController = {};
+					*keyboardController = zeroController;
+
 					while(PeekMessage(&message, 0, 0, 0, PM_REMOVE))
 					{
 						if(message.message == WM_QUIT)
 						{
 							gRunning = false;
 						}
-						TranslateMessage(&message);
-						DispatchMessageA(&message);
+
+						switch(message.message)
+						{
+							case WM_SYSKEYDOWN:
+							case WM_SYSKEYUP:
+							case WM_KEYDOWN:
+							case WM_KEYUP:
+							{
+								u32 virtualKeyCode = (u32)message.wParam;
+								b32 wasDown = ((message.lParam & (1 << 30)) != 0);
+								b32 isDown  = ((message.lParam & (1 << 31)) == 0);
+								if(wasDown != isDown)
+								{
+									if(virtualKeyCode == 'W')
+									{
+									}
+									else if(virtualKeyCode == 'A')
+									{
+									}
+									else if(virtualKeyCode == 'S')
+									{	
+									}
+									else if(virtualKeyCode == 'D')
+									{	
+									}
+									else if(virtualKeyCode == 'Q')
+									{	
+										Win32_ProcessKeyboardMessage(&keyboardController->leftShoulder, isDown);
+									}
+									else if(virtualKeyCode == 'E')
+									{
+										Win32_ProcessKeyboardMessage(&keyboardController->rightShoulder, isDown);
+									}
+									else if(virtualKeyCode == VK_UP)
+									{
+										Win32_ProcessKeyboardMessage(&keyboardController->up, isDown);
+									}
+									else if(virtualKeyCode == VK_LEFT)
+									{	
+										Win32_ProcessKeyboardMessage(&keyboardController->left, isDown);
+									}
+									else if(virtualKeyCode == VK_DOWN)
+									{	
+										Win32_ProcessKeyboardMessage(&keyboardController->down, isDown);
+									}
+									else if(virtualKeyCode == VK_RIGHT)
+									{
+										Win32_ProcessKeyboardMessage(&keyboardController->right, isDown);
+									}
+									else if(virtualKeyCode == VK_ESCAPE)
+									{
+										gRunning = false;
+									}
+									else if(virtualKeyCode == VK_SPACE)
+									{
+									}
+								}
+
+								b32 altKeyWasDown = message.lParam & (1 << 29);
+								if((virtualKeyCode == VK_F4) && altKeyWasDown)
+								{
+									gRunning = false;
+								}
+							} break;
+
+							default:
+							{
+								TranslateMessage(&message);
+								DispatchMessageA(&message);
+							}
+						}
 					}
 
-					DWORD dwResult;   
-					int maxControllerCount = XUSER_MAX_COUNT;
+					DWORD maxControllerCount = XUSER_MAX_COUNT;
 					if(maxControllerCount > ArrayCount(newInput->controllers))
 					{
 						maxControllerCount = ArrayCount(newInput->controllers);
@@ -713,11 +739,9 @@ WinMain(HINSTANCE instance,
 
 					u64 cyclesElapsed = endCycleCount - lastCycleCount;
 					i64 counterElapsed = endCounter.QuadPart - lastCounter.QuadPart;
-					// We cast these down to i32 because printf fmt specifiers work reliably
-					// w/ i32, but not always w/ i64, apparently.
-					i32 msPerFrame = (i32)((1000 * counterElapsed) / perfCountFrequency);
-					i32 fps = perfCountFrequency / counterElapsed;
-					i32 mcpf = (i32)(cyclesElapsed / (1000 * 1000));
+					f64 msPerFrame = (((1000.0f * (f64)counterElapsed) / (f64)perfCountFrequency));
+					f64 fps = (f64)perfCountFrequency / (f64)counterElapsed;
+					f64 mcpf = ((f64)cyclesElapsed / (1000.0f * 1000.0f));
 
 	#if 0
 					char buffer[256];
