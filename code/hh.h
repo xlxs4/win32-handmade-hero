@@ -70,38 +70,44 @@ struct GameButtonState
 
 struct GameControllerInput
 {
+	b32 isConnected;
 	b32 isAnalog;
-
-	f32 startX;
-	f32 startY;
-
-	f32 minX;
-	f32 minY;
-
-	f32 maxX;
-	f32 maxY;
-
-	f32 endX;
-	f32 endY;
+	f32 stickAverageX;
+	f32 stickAverageY;
 
 	union
 	{
-		GameButtonState buttons[6];
+		GameButtonState buttons[12];
 		struct{
-			GameButtonState up;
-			GameButtonState down;
-			GameButtonState left;
-			GameButtonState right;
+			GameButtonState moveUp;
+			GameButtonState moveDown;
+			GameButtonState moveLeft;
+			GameButtonState moveRight;
+
+			GameButtonState actionUp;
+			GameButtonState actionDown;
+			GameButtonState actionLeft;
+			GameButtonState actionRight;
+
 			GameButtonState leftShoulder;
 			GameButtonState rightShoulder;
+
+			GameButtonState back;
+			GameButtonState start;
 		};
 	};
 };
 
 struct GameInput
 {
-	GameControllerInput controllers[4];
+	GameControllerInput controllers[5];
 };
+inline GameControllerInput* GetController(GameInput* input, int unsigned controllerIndex)
+{
+	Assert(controllerIndex < ArrayCount(input->controllers));
+	GameControllerInput* result = &input->controllers[controllerIndex];
+	return result;
+}
 
 struct GameState
 {

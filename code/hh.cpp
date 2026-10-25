@@ -55,6 +55,10 @@ GameUpdateAndRender(GameMemory* memory,
                     GameOffscreenBuffer* buffer,
                     GameSoundOutputBuffer* soundBuffer)
 {
+	// Assert that the buttons array has a count equal to the struct members,
+	// in a poor, hacky way
+	Assert((&input->controllers[0].start - &input->controllers[0].buttons[0]) ==
+			(ArrayCount(input->controllers[0].buttons) - 1));
 	Assert(sizeof(GameState) <= memory->permanentStorageSize);
 
 	GameState* gameState = (GameState*)memory->permanentStorage;
@@ -74,20 +78,32 @@ GameUpdateAndRender(GameMemory* memory,
 		memory->isInitialized = true;
 	}
 
-	GameControllerInput *input0 = &input->controllers[0];
-	if(input0->isAnalog)
+	for(int controllerIndex = 0;
+		 controllerIndex < ArrayCount(input->controllers);
+		 ++controllerIndex)
 	{
-		gameState->xOffset += (int)(4.0f*(input0->endX));
-		gameState->toneHz = 256 + (int)(128.0f * (input0->endY));
-	}
-	else
-	{
+		GameControllerInput *controller = GetController(input, controllerIndex);
+		if(controller->isAnalog)
+		{
+			gameState->xOffset += (int)(4.0f*(controller->stickAverageX));
+			gameState->toneHz = 256 + (int)(128.0f * (controller->stickAverageY));
+		}
+		else
+		{
+			if(controller->moveLeft.endedDown)
+			{
+				gameState->xOffset -= 1;
+			}
+			if(controller->moveRight.endedDown)
+			{
+				gameState->xOffset += 1;
+			}
+		}
 
-	}
-
-	if(input0->down.endedDown)
-	{
-		gameState->yOffset += 1;
+		if(controller->actionDown.endedDown)
+		{
+			gameState->yOffset += 1;
+		}
 	}
 
 	
