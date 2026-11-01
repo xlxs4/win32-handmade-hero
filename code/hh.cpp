@@ -52,8 +52,7 @@ RenderWeirdGradient(GameOffscreenBuffer* buffer,
 internal void
 GameUpdateAndRender(GameMemory* memory,
                     GameInput* input,
-                    GameOffscreenBuffer* buffer,
-                    GameSoundOutputBuffer* soundBuffer)
+                    GameOffscreenBuffer* buffer)
 {
 	// Assert that the buttons array has a count equal to the struct members,
 	// in a poor, hacky way
@@ -73,7 +72,7 @@ GameUpdateAndRender(GameMemory* memory,
 			DEBUGPlatformFreeFileMemory(file.contents);
 		}
 
-		gameState->toneHz = 440;
+		gameState->toneHz = 256;
 
 		memory->isInitialized = true;
 	}
@@ -106,7 +105,13 @@ GameUpdateAndRender(GameMemory* memory,
 		}
 	}
 
-	
-	GameOutputSound(soundBuffer, gameState->toneHz);
 	RenderWeirdGradient(buffer, gameState->xOffset, gameState->yOffset);
 }
+
+internal void
+GameGetSoundSamples(GameMemory* memory, GameSoundOutputBuffer* soundBuffer)
+{
+	GameState* gameState = (GameState*)memory->permanentStorage;
+	GameOutputSound(soundBuffer, gameState->toneHz);
+}
+

@@ -20,18 +20,24 @@ struct Win32_WindowDimension
 
 struct Win32_SoundOutput
 {
-	int samplesPerSecond;
-	u32 runningSampleIndex;
-	int bytesPerSample;
+	int   samplesPerSecond;
+	u32   runningSampleIndex;
+	int   bytesPerSample;
 	DWORD secondaryBufferSize;
-	f32 tSine;
-	int latencySampleCount;
+	DWORD safetyBytes;
+	f32   tSine;
+	int   latencySampleCount;
 };
 
 struct Win32_DebugTimeMarker
 {
-	DWORD playCursor;
-	DWORD writeCursor;
+	DWORD outputPlayCursor;
+	DWORD outputWriteCursor;
+	DWORD outputLocation;
+	DWORD outputByteCount;
+	DWORD expectedFlipPlayCursor;
+	DWORD flipPlayCursor;
+	DWORD flipWriteCursor;
 };
 
 #define WIN32_HH_H

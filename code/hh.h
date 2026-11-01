@@ -130,8 +130,10 @@ struct GameMemory
 internal void
 GameUpdateAndRender(GameMemory* memory,
                     GameInput* input,
-                    GameOffscreenBuffer* buffer,
-                    GameSoundOutputBuffer* soundBuffer);
+                    GameOffscreenBuffer* buffer);
+
+internal void
+GameGetSoundSamples(GameMemory* memory, GameSoundOutputBuffer* soundBuffer);
 
 #define HH_H
 #endif
