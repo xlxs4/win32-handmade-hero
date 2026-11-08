@@ -41,21 +41,29 @@ X_INPUT_SET_STATE(XInputSetStateStub)
 global_variable x_input_set_state* XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
 
-struct Win32_GameCode
+inline FILETIME
+Win32_GetLastWriteTime(char* filename)
 {
-	HMODULE gameCodeDLL;
-	game_update_and_render* updateAndRender;
-	game_get_sound_samples* getSoundSamples;
-	b32 isValid;
-};
+	FILETIME lastWriteTime = {};
+	// Casey used FindFirstFileA instead, but this is cleaner since we don't deal
+	// with file handles (and thus, opening/closing the file?)
+	WIN32_FILE_ATTRIBUTE_DATA fileInfo;
+	if(GetFileAttributesExA(filename, GetFileExInfoStandard, &fileInfo))
+	{
+		lastWriteTime = fileInfo.ftLastWriteTime;
+	}
+	return lastWriteTime;
+}
 
 internal Win32_GameCode
-Win32_LoadGameCode()
+Win32_LoadGameCode(char* sourceDLLName, char* tempDLLName)
 {
 	Win32_GameCode result = {};
 
-	CopyFile("hh.dll", "hh_temp.dll", FALSE);
-	result.gameCodeDLL = LoadLibraryA("hh_temp.dll");
+	result.DLLLastWriteTime = Win32_GetLastWriteTime(sourceDLLName);
+
+	CopyFileA(sourceDLLName, tempDLLName, FALSE);
+	result.gameCodeDLL = LoadLibraryA(tempDLLName);
 	if(result.gameCodeDLL)
 	{
 		 result.updateAndRender = (game_update_and_render*)
@@ -674,12 +682,58 @@ Win32_DebugSyncDisplay(Win32_OffscreenBuffer* backbuffer,
 	}
 }
 
+void
+CatStrings(size_t sourceACount, char* sourceA,
+		     size_t sourceBCount, char* sourceB,
+			  size_t destCount,    char* dest)
+{
+	for(int index = 0;
+		 index < sourceACount;
+		 ++index)
+	{
+		*dest++ = *sourceA++;
+	}
+
+	for(int index = 0;
+		 index < sourceBCount;
+		 ++index)
+	{
+		*dest++ = *sourceB++;
+	}
+
+	*dest++ = 0;
+}
+
 int CALLBACK
 WinMain(HINSTANCE instance,
         HINSTANCE prevInstance,
         LPSTR     commandLine,
         int       showCode)
 {
+	// Don't actually use MAX_PATH in your code please :)
+	char EXEFilename[MAX_PATH];
+	DWORD sizeOfFilename = GetModuleFileNameA(0, EXEFilename, sizeof(EXEFilename));
+	char* onePastLastSlash = EXEFilename;
+	for(char* scan = EXEFilename; *scan; ++scan)
+	{
+		if(*scan == '\\')
+		{
+			onePastLastSlash = scan + 1;
+		}
+	}
+
+	char sourceGameCodeDLLFilename[] = "hh.dll";
+	char sourceGameCodeDLLFullPath[MAX_PATH];
+	CatStrings(onePastLastSlash - EXEFilename, EXEFilename,
+			     sizeof(sourceGameCodeDLLFilename) - 1, sourceGameCodeDLLFilename,
+				  sizeof(sourceGameCodeDLLFullPath), sourceGameCodeDLLFullPath);
+
+	char tempGameCodeDLLFilename[] = "hh_temp.dll";
+	char tempGameCodeDLLFullPath[MAX_PATH];
+	CatStrings(onePastLastSlash - EXEFilename, EXEFilename,
+			     sizeof(tempGameCodeDLLFilename) - 1, tempGameCodeDLLFilename,
+				  sizeof(tempGameCodeDLLFullPath), tempGameCodeDLLFullPath);
+
 	LARGE_INTEGER perfCountFrequencyResult;
 	QueryPerformanceFrequency(&perfCountFrequencyResult);
 	gPerfCountFrequency = perfCountFrequencyResult.QuadPart;
@@ -775,17 +829,17 @@ WinMain(HINSTANCE instance,
 				f32 audioLatencySeconds = 0;
 				b32 soundIsValid = false;
 
-				Win32_GameCode game = Win32_LoadGameCode();
-				u32 loadCounter = 120;
+				Win32_GameCode game = Win32_LoadGameCode(sourceGameCodeDLLFullPath,
+						                                   tempGameCodeDLLFullPath);
 
 				u64 lastCycleCount = __rdtsc();
 				while(gRunning)
 				{
-					if(loadCounter++ > 120)
+					FILETIME newDLLWriteTime = Win32_GetLastWriteTime(sourceGameCodeDLLFullPath);
+					if(CompareFileTime(&newDLLWriteTime, &game.DLLLastWriteTime) != 0)
 					{
 						Win32_UnloadGameCode(&game);
-						game = Win32_LoadGameCode();
-						loadCounter = 0;
+						game = Win32_LoadGameCode(sourceGameCodeDLLFullPath, tempGameCodeDLLFullPath);
 					}
 					GameControllerInput *oldKeyboardController = GetController(oldInput, 0);
 					GameControllerInput *newKeyboardController = GetController(newInput, 0);

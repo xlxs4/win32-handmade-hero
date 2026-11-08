@@ -1,5 +1,7 @@
 I wanted to have the initial version of the Win32 platform layer somewhere, intact, so that I can build upon it (e.g., substitute more modern APIs when needed).
 
+---
+
 Some setup notes:
 
 I put everything in Desktop, three dirs. apps, games, dev
