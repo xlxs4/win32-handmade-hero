@@ -18,6 +18,14 @@ local function parse_msvc(line)
 			type = msvc_types[text:match("^%a+")],
 		}
 	end
+	-- Linker errors have no source location, e.g.
+	--   hh.obj : error LNK2019: unresolved external symbol ...
+	--   LINK : fatal error LNK1104: cannot open file 'hh.exe'
+	-- No filename, so they go to the quickfix list only (not diagnostics)
+	local kind = line:match("^%s*.-%s:%s(%a+)[%a ]* LNK%d+:")
+	if kind then
+		return { text = vim.trim(line), type = msvc_types[kind] or "E" }
+	end
 end
 
 -- Run build.bat, parsing its output into diagnostics and the quickfix list

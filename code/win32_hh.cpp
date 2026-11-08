@@ -1,30 +1,4 @@
-#include <cstdint>
-#include <cmath>
-#include <stdio.h>
-
-#define internal        static
-#define local_persist   static
-#define global_variable static
-
-#define PI32 3.14159265359f
-
-typedef int8_t  i8;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef int64_t i64;
-
-typedef uint8_t  u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-
-typedef float  f32;
-typedef double f64;
-
-typedef int32_t b32;
-
 #include "hh.h"
-#include "hh.cpp"
 
 #include <windows.h>
 #include <xinput.h>
@@ -67,6 +41,55 @@ X_INPUT_SET_STATE(XInputSetStateStub)
 global_variable x_input_set_state* XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
 
+struct Win32_GameCode
+{
+	HMODULE gameCodeDLL;
+	game_update_and_render* updateAndRender;
+	game_get_sound_samples* getSoundSamples;
+	b32 isValid;
+};
+
+internal Win32_GameCode
+Win32_LoadGameCode()
+{
+	Win32_GameCode result = {};
+
+	CopyFile("hh.dll", "hh_temp.dll", FALSE);
+	result.gameCodeDLL = LoadLibraryA("hh_temp.dll");
+	if(result.gameCodeDLL)
+	{
+		 result.updateAndRender = (game_update_and_render*)
+			 GetProcAddress(result.gameCodeDLL, "GameUpdateAndRender");
+
+		 result.getSoundSamples = (game_get_sound_samples*)
+			 GetProcAddress(result.gameCodeDLL, "GameGetSoundSamples");
+
+		 result.isValid = (result.updateAndRender && result.getSoundSamples);
+	}
+
+	if(!result.isValid)
+	{
+		result.updateAndRender = GameUpdateAndRenderStub;
+		result.getSoundSamples = GameGetSoundSamplesStub;
+	}
+
+	return result;
+}
+
+internal void
+Win32_UnloadGameCode(Win32_GameCode* gameCode)
+{
+	if(gameCode->gameCodeDLL)
+	{
+		FreeLibrary(gameCode->gameCodeDLL);
+		gameCode->gameCodeDLL = 0;
+	}
+	
+	gameCode->isValid = false;
+	gameCode->updateAndRender = GameUpdateAndRenderStub;
+	gameCode->getSoundSamples = GameGetSoundSamplesStub;
+}
+
 internal void
 Win32_LoadXInput()
 {
@@ -102,8 +125,15 @@ global_variable Win32_OffscreenBuffer gBackbuffer;
 global_variable LPDIRECTSOUNDBUFFER   gSecondaryBuffer;
 global_variable i64                   gPerfCountFrequency;
 
-internal DebugReadFileResult
-DEBUGPlatformReadEntireFile(char* filename)
+DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
+{
+	if(memory)
+	{
+		VirtualFree(memory, 0, MEM_RELEASE);
+	}
+}
+
+DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile)
 {
 	DebugReadFileResult result = {};
 
@@ -142,17 +172,7 @@ DEBUGPlatformReadEntireFile(char* filename)
 	return result;
 }
 
-internal void
-DEBUGPlatformFreeFileMemory(void* memory)
-{
-	if(memory)
-	{
-		VirtualFree(memory, 0, MEM_RELEASE);
-	}
-}
-
-internal b32
-DEBUGPlatformWriteEntireFile(char* filename, u32 memorySize, void* memory)
+DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile)
 {
 	b32 result = false;
 
@@ -729,6 +749,9 @@ WinMain(HINSTANCE instance,
 			GameMemory gameMemory = {};
 			gameMemory.permanentStorageSize = Megabytes(64);
 			gameMemory.transientStorageSize = Gigabytes(4);
+			gameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
+			gameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
+			gameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
 
 			u64 totalSize = gameMemory.permanentStorageSize + gameMemory.transientStorageSize;
 			gameMemory.permanentStorage = VirtualAlloc(baseAddress, totalSize,
@@ -752,9 +775,18 @@ WinMain(HINSTANCE instance,
 				f32 audioLatencySeconds = 0;
 				b32 soundIsValid = false;
 
+				Win32_GameCode game = Win32_LoadGameCode();
+				u32 loadCounter = 120;
+
 				u64 lastCycleCount = __rdtsc();
 				while(gRunning)
 				{
+					if(loadCounter++ > 120)
+					{
+						Win32_UnloadGameCode(&game);
+						game = Win32_LoadGameCode();
+						loadCounter = 0;
+					}
 					GameControllerInput *oldKeyboardController = GetController(oldInput, 0);
 					GameControllerInput *newKeyboardController = GetController(newInput, 0);
 					*newKeyboardController = {};
@@ -917,7 +949,7 @@ WinMain(HINSTANCE instance,
 						gameBuffer.height = gBackbuffer.height;
 						gameBuffer.pitch = gBackbuffer.pitch;
 
-						GameUpdateAndRender(&gameMemory, newInput, &gameBuffer);
+						game.updateAndRender(&gameMemory, newInput, &gameBuffer);
 
 						LARGE_INTEGER audioWallClock = Win32_GetWallClock();
 						f32 fromBeginToAudioSeconds = Win32_GetSecondsElapsed(flipWallClock, audioWallClock);
@@ -1003,7 +1035,7 @@ WinMain(HINSTANCE instance,
 							soundBuffer.samples = samples;
 							soundBuffer.samplesPerSecond = soundOutput.samplesPerSecond;
 							soundBuffer.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
-							GameGetSoundSamples(&gameMemory, &soundBuffer);
+							game.getSoundSamples(&gameMemory, &soundBuffer);
 #if HANDMADE_INTERNAL
 							Win32_DebugTimeMarker* marker = &debugTimeMarkers[debugTimeMarkerIndex];
 							marker->outputPlayCursor = playCursor;
