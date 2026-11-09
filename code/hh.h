@@ -79,10 +79,11 @@ typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
 struct GameOffscreenBuffer
 {
 	// Pixels are always 32-bits wide, memory order BB GG RR XX.
-	void*      memory;
-	int        width;
-	int        height;
-	int        pitch;
+	void* memory;
+	int   width;
+	int   height;
+	int   pitch;
+	int   bytesPerPixel;
 };
 
 struct GameSoundOutputBuffer
@@ -146,6 +147,10 @@ struct GameState
 	int toneHz;
 
 	f32 tSine;
+
+	int playerX;
+	int playerY;
+	f32 tJump;
 };
 
 struct GameMemory

@@ -9,8 +9,12 @@ GameOutputSound(GameState* gameState, GameSoundOutputBuffer* buffer, int toneHz)
 	i16 *sampleOut = buffer->samples;
 	for(int sampleIndex = 0; sampleIndex < buffer->sampleCount; ++sampleIndex)
 	{
+#if 0
 		f32 sineValue = sinf(gameState->tSine);
 		i16 sampleValue = (i16)(sineValue * toneVolume);
+#else
+		i16 sampleValue = 0;
+#endif
 		*sampleOut++ = sampleValue;
 		*sampleOut++ = sampleValue;
 		gameState->tSine += 2.0f * PI32 * 1.0f / (f32)wavePeriod;
@@ -50,6 +54,30 @@ RenderWeirdGradient(GameOffscreenBuffer* buffer,
 	}
 }
 
+internal void
+RenderPlayer(GameOffscreenBuffer* buffer, int playerX, int playerY)
+{
+	u8* endOfBuffer = (u8*)buffer->memory + buffer->pitch * buffer->height;
+	u32 color = 0xFFFFFFFF;
+	int top = playerY;
+	int bottom = playerY+10;
+	for(int x = playerX; x < playerX+10; ++x)
+	{
+		u8* pixel = ((u8*)buffer->memory +
+						 x*buffer->bytesPerPixel +
+						 top*buffer->pitch);
+		for(int y = top; y < bottom; ++y)
+		{
+			if((pixel >= buffer->memory) && ((pixel + 4) <= endOfBuffer))
+			{
+				*(u32*)pixel = color;
+			}
+
+			pixel += buffer->pitch;
+		}
+	}
+}
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
 	// Assert that the buttons array has a count equal to the struct members,
@@ -72,6 +100,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 		gameState->toneHz = 256;
 		gameState->tSine = 0.0f;
+
+		gameState->playerX = 100;
+		gameState->playerY = 100;
 
 		memory->isInitialized = true;
 	}
@@ -98,13 +129,23 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			}
 		}
 
+		gameState->playerX += (int)(4.0f*(controller->stickAverageX));
+		gameState->playerY -= (int)(4.0f*(controller->stickAverageY));
+
+		if(gameState->tJump > 0)
+		{
+			gameState->playerY += (int)(5.0f*sinf(0.5f*PI32*gameState->tJump));
+		}
+
 		if(controller->actionDown.endedDown)
 		{
-			gameState->yOffset += 1;
+			gameState->tJump = 4.0;
 		}
+		gameState->tJump -= 0.033f;
 	}
 
 	RenderWeirdGradient(buffer, gameState->xOffset, gameState->yOffset);
+	RenderPlayer(buffer, gameState->playerX, gameState->playerY);
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)
